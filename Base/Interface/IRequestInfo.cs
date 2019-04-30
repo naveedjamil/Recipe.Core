@@ -2,20 +2,16 @@
 
 namespace Recipe.NetCore.Base.Interface
 {
-    public interface IRequestInfo
+    public interface IRequestInfo<out TDbContext>
+        where TDbContext : DbContext
     {
+
         long UserId { get; }
 
         string UserName { get; }
 
-        string DeviceId { get; }
-
         string Role { get; }
 
-        long? PracticeId { get; }
-
-        bool AllPractices { get; }
-
-        DbContext Context { get; }
+        TDbContext Context { get; }
     }
 }

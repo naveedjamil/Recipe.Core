@@ -5,36 +5,23 @@ using System.Threading.Tasks;
 
 namespace Recipe.NetCore.Base.Abstract
 {
-    public class UnitOfWork : IUnitOfWork
+    public class UnitOfWork<TDbContext> : IUnitOfWork<TDbContext>
+            where TDbContext : DbContext
     {
-        private readonly IRequestInfo _requestInfo;
+        private readonly IRequestInfo<TDbContext> _requestInfo;
 
-        public UnitOfWork(IRequestInfo requestInfo)
+        public UnitOfWork(IRequestInfo<TDbContext> requestInfo)
         {
             this._requestInfo = requestInfo;
+
         }
 
-        public DbContext DBContext
-        {
-            get
-            {
-                return this._requestInfo.Context;
-            }
-        }
+        public TDbContext DbContext => this._requestInfo.Context;
 
-        public int Save()
-        {
-            return this._requestInfo.Context.SaveChanges();
-        }
+        public int Save() => this._requestInfo.Context.SaveChanges();
 
-        public async Task<int> SaveAsync()
-        {
-            return await this._requestInfo.Context.SaveChangesAsync();
-        }
+        public async Task<int> SaveAsync() => await this._requestInfo.Context.SaveChangesAsync();
 
-        public IDbContextTransaction BeginTransaction()
-        {
-            return this.DBContext.Database.BeginTransaction();
-        }
+        public IDbContextTransaction BeginTransaction() => this.DbContext.Database.BeginTransaction();
     }
 }

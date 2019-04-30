@@ -1,8 +1,6 @@
 ﻿using Recipe.NetCore.Base.Interface;
 using System;
-using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-using System.Text;
 
 namespace Recipe.NetCore.Base.Abstract
 {

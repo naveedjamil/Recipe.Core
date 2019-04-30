@@ -1,13 +1,12 @@
 ﻿using Recipe.NetCore.Base.Interface;
+using Recipe.NetCore.Helper;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using TMH.Common.Helper;
 
 namespace Recipe.NetCore.Base.Abstract
 {
-    public class DTO<TEntity, TKey> : IBase<TKey>
+    public class Dto<TEntity, TKey> : IBase<TKey>
           where TEntity : IAuditModel<TKey>, new()
     {
         #region Private_Attributes
@@ -62,12 +61,12 @@ namespace Recipe.NetCore.Base.Abstract
 
         public bool IsDeleted { get; set; }
 
-        public DTO()
+        public Dto()
         {
 
         }
-
-        public DTO(TEntity entity)
+        
+        public Dto(TEntity entity)
         {
             this.Id = entity.Id;
         }
@@ -89,23 +88,29 @@ namespace Recipe.NetCore.Base.Abstract
             this.Id = entity.Id;
         }
 
-        public static List<TDTO> ConvertEntityListToDTOList<TDTO>(IEnumerable<TEntity> entityList) where TDTO : DTO<TEntity, TKey>, new()
+        public static List<TDTO> ConvertEntityListToDtoList<TDTO>(IEnumerable<TEntity> entityList) where TDTO : Dto<TEntity, TKey>, new()
         {
             var result = new List<TDTO>();
+
             if (entityList != null)
+            {
                 foreach (var entity in entityList)
                 {
                     var dto = new TDTO();
                     dto.ConvertFromEntity(entity);
                     result.Add(dto);
                 }
+            }
+
             return result;
         }
 
-        public static IList<TEntity> ConvertDTOListToEntity(IEnumerable<DTO<TEntity, TKey>> dtoList, IEnumerable<TEntity> entityList)
+        public static IList<TEntity> ConvertDtoListToEntity(IEnumerable<Dto<TEntity, TKey>> dtoList, IEnumerable<TEntity> entityList)
         {
             var result = new List<TEntity>();
+
             if (dtoList != null)
+            {
                 foreach (var dto in dtoList)
                 {
                     var entityFromDb = entityList.SingleOrDefault(x => x.Id.Equals(dto.Id));
@@ -118,22 +123,25 @@ namespace Recipe.NetCore.Base.Abstract
                         result.Add(dto.ConvertToEntity());
                     }
                 }
+            }
+
             foreach (var entity in entityList.Where(x => !dtoList.Any(y => y.Id.Equals(x.Id))))
             {
-                entity.IsDeleted = true;
                 result.Add(entity);
             }
             return result;
         }
 
-        public static IList<TEntity> ConvertDTOListToEntity(IEnumerable<DTO<TEntity, TKey>> dtoList)
+        public static IList<TEntity> ConvertDtoListToEntity(IEnumerable<Dto<TEntity, TKey>> dtoList)
         {
             var result = new List<TEntity>();
             if (dtoList != null)
+            {
                 foreach (var dto in dtoList)
                 {
                     result.Add(dto.ConvertToEntity());
                 }
+            }
             return result;
         }
 

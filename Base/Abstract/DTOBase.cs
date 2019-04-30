@@ -1,10 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Recipe.NetCore.Base.Abstract
 {
-    public class DTOBase
+    public class DtoBase
     {
         public bool HasErrors { get; set; }
 

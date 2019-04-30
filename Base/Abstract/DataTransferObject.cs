@@ -3,11 +3,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
-using TMH.Common.Helper;
 
 namespace Recipe.NetCore.Base.Abstract
 {
-    public class DataTransferObject<T> : DTOBase
+    public class DataTransferObject<T> : DtoBase
     {
         public DataTransferObject() { }
         public DataTransferObject(T result)
@@ -34,17 +33,25 @@ namespace Recipe.NetCore.Base.Abstract
         public Func<IQueryable<T>, IOrderedQueryable<T>> OrderBy { get; set; }
         [JsonIgnore]
         public List<Expression<Func<T, object>>> Includes { get; set; }
-        
+
     }
 
     public class Paging
     {
         public long TotalCount { get; set; }
-        private int _PageNumber { get; set; }
-        public int PageNumber { get { return this._PageNumber <= 0 ? 1 : this._PageNumber; } set { this._PageNumber = value; } }
+        private int Page_Number { get; set; }
+        public int PageNumber
+        {
+            get { return this.Page_Number <= 0 ? 1 : this.Page_Number; }
+            set { this.Page_Number = value; }
+        }
 
-        private int _PageSize { get; set; }
-        public int PageSize { get { return this._PageSize <= 0 ? 1 : this._PageSize; } set { this._PageSize = value; } }
+        private int Page_Size { get; set; }
+        public int PageSize
+        {
+            get { return this.Page_Size <= 0 ? 1 : this.Page_Size; }
+            set { this.Page_Size = value; }
+        }
 
         public int TotalPages { get { return (int)Math.Ceiling((double)this.TotalCount / this.PageSize); } }
 

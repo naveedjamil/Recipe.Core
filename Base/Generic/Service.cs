@@ -1,26 +1,25 @@
 ﻿using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using Recipe.NetCore.Base.Abstract;
 using Recipe.NetCore.Base.Interface;
+using Recipe.NetCore.Helper;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
-using TMH.Common.Helper;
 
 namespace Recipe.NetCore.Base.Generic
 {
-    public class Service : IService
+    public class Service : IService<DbContext>
     {
-        public IUnitOfWork UnitOfWork { get; private set; }
+        public IUnitOfWork<DbContext> UnitOfWork { get; private set; }
 
-        public Service(IUnitOfWork unitOfWork)
-        {
-            UnitOfWork = unitOfWork;
-        }
+        public Service(IUnitOfWork<DbContext> unitOfWork) => UnitOfWork = unitOfWork;
     }
 
     public class Service<TRepository, TEntity, TDTO, TKey> : Service, IService<TRepository, TEntity, TDTO, TKey>
      where TEntity : IAuditModel<TKey>, new()
-     where TDTO : DTO<TEntity, TKey>, new()
+     where TDTO : Dto<TEntity, TKey>, new()
      where TRepository : IAuditableRepository<TEntity, TKey>
      where TKey : IEquatable<TKey>
     {
@@ -29,18 +28,19 @@ namespace Recipe.NetCore.Base.Generic
 
         public TRepository Repository => _repository;
 
-        public Service(IUnitOfWork unitOfWork, TRepository repository, IMapper mapper)
+        public Service(IUnitOfWork<DbContext> unitOfWork, TRepository repository, IMapper mapper)
             : base(unitOfWork)
         {
             _repository = repository;
             _mapper = mapper;
         }
 
+        public Service(IUnitOfWork<DbContext> unitOfWork, TRepository repository)
+            : base(unitOfWork) => _repository = repository;
+
         protected Task<TEntity> Create(TDTO dtoObject)
         {
-            TEntity entity = dtoObject.ConvertToEntity();
-            entity.CreatedBy = dtoObject.CreatedBy;
-            entity.CreatedOn = DateTime.UtcNow;
+            TEntity entity = _mapper.Map<TEntity>(dtoObject);
             return _repository.Create(entity);
         }
 
@@ -62,22 +62,16 @@ namespace Recipe.NetCore.Base.Generic
                 results.Add(await Create(dtoObject));
             }
 
-            UnitOfWork.DBContext.ChangeTracker.AutoDetectChangesEnabled = false;
+            UnitOfWork.DbContext.ChangeTracker.AutoDetectChangesEnabled = false;
             await UnitOfWork.SaveAsync();
-            UnitOfWork.DBContext.ChangeTracker.AutoDetectChangesEnabled = true;
+            UnitOfWork.DbContext.ChangeTracker.AutoDetectChangesEnabled = true;
 
-            return DTO<TEntity, TKey>.ConvertEntityListToDTOList<TDTO>(results);
+            return Dto<TEntity, TKey>.ConvertEntityListToDtoList<TDTO>(results);
         }
 
-        protected async Task Delete(TKey id)
-        {
-            await _repository.DeleteAsync(id);
-        }
+        protected async Task Delete(TKey id) => await _repository.DeleteAsync(id);
 
-        protected async Task HardDelete(TKey id)
-        {
-            await _repository.HardDeleteAsync(id);
-        }
+        protected async Task HardDelete(TKey id) => await _repository.HardDeleteAsync(id);
 
         public virtual async Task DeleteAsync(TKey id)
         {
@@ -98,19 +92,18 @@ namespace Recipe.NetCore.Base.Generic
                 await Delete(id);
             }
 
-            UnitOfWork.DBContext.ChangeTracker.AutoDetectChangesEnabled = false;
+            UnitOfWork.DbContext.ChangeTracker.AutoDetectChangesEnabled = false;
             await UnitOfWork.SaveAsync();
-            UnitOfWork.DBContext.ChangeTracker.AutoDetectChangesEnabled = true;
+            UnitOfWork.DbContext.ChangeTracker.AutoDetectChangesEnabled = true;
         }
 
-        public virtual async Task<int> GetCount()
-        {
-            return await _repository.GetCount();
-        }
+        public virtual async Task<int> GetCount() => await _repository.GetCount();
 
-        public async Task<DataTransferObject<List<TDTO>>> GetAllAsync(DataTransferObject<TEntity> model)
+        public async Task<IEnumerable<TKey>> GetIds() => (await GetAllAsync(new DataTransferObject<TEntity>())).Result.Select(s => s.Id);
+
+        public virtual async Task<DataTransferObject<List<TDTO>>> GetAllAsync(DataTransferObject<TEntity> entity)
         {
-            var results = await Repository.Query(x => !x.IsDeleted).SelectAsync();
+            var results = await Repository.Query(x => true).SelectAsync();
 
             var collection = _mapper.Map<List<TDTO>>(results);
 
@@ -127,7 +120,7 @@ namespace Recipe.NetCore.Base.Generic
             return new DataTransferObject<List<TDTO>>(collection, model.Paging);
         }
 
-        public virtual async Task<DataTransferObject<IList<TDTO>>> GetAllAsync(JSONAPIRequest request)
+        public virtual async Task<DataTransferObject<IList<TDTO>>> GetAllAsync(JsonapiRequest request)
         {
             IEnumerable<TEntity> entity = await _repository.GetAll(request);
             var collection = _mapper.Map<List<TDTO>>(entity);
@@ -155,15 +148,21 @@ namespace Recipe.NetCore.Base.Generic
 
         protected async Task<TEntity> Update(TDTO dtoObject)
         {
-            var dbEntity = await _repository.GetAsync(dtoObject.Id);
-            var entity = dtoObject.ConvertToEntity(dbEntity);
-            entity.LastModifiedBy = dtoObject.LastModifiedBy;
-            entity.LastModifiedOn = DateTime.UtcNow;
+            TEntity entity = _mapper.Map<TEntity>(dtoObject);
             return await _repository.Update(entity);
         }
 
         public virtual async Task<DataTransferObject<TDTO>> UpdateAsync(TDTO dtoObject)
         {
+            var entity = await Repository.GetAsync(dtoObject.Id);
+            if (entity == null)
+            {
+                DataTransferObject<TDTO> dto = new DataTransferObject<TDTO>();
+                dto.Result = dtoObject;
+                dto.HasErrors = true;
+                dto.Error = new Exception("Entity not found.");
+                return dto;
+            }
             var result = await Update(dtoObject);
             await UnitOfWork.SaveAsync();
             dtoObject.ConvertFromEntity(result);
@@ -178,11 +177,11 @@ namespace Recipe.NetCore.Base.Generic
                 results.Add(await Update(dtoObject));
             }
 
-            UnitOfWork.DBContext.ChangeTracker.AutoDetectChangesEnabled = false;
+            UnitOfWork.DbContext.ChangeTracker.AutoDetectChangesEnabled = false;
             await UnitOfWork.SaveAsync();
-            UnitOfWork.DBContext.ChangeTracker.AutoDetectChangesEnabled = true;
+            UnitOfWork.DbContext.ChangeTracker.AutoDetectChangesEnabled = true;
 
-            return DTO<TEntity, TKey>.ConvertEntityListToDTOList<TDTO>(results);
+            return Dto<TEntity, TKey>.ConvertEntityListToDtoList<TDTO>(results);
         }
 
         public virtual async Task<IList<TEntity>> UpdateAsync(IList<TEntity> entityObjects)
@@ -196,9 +195,9 @@ namespace Recipe.NetCore.Base.Generic
 
             await Task.WhenAll(taskList);
 
-            UnitOfWork.DBContext.ChangeTracker.AutoDetectChangesEnabled = false;
+            UnitOfWork.DbContext.ChangeTracker.AutoDetectChangesEnabled = false;
             await UnitOfWork.SaveAsync();
-            UnitOfWork.DBContext.ChangeTracker.AutoDetectChangesEnabled = true;
+            UnitOfWork.DbContext.ChangeTracker.AutoDetectChangesEnabled = true;
 
             return entityObjects;
         }
@@ -231,6 +230,32 @@ namespace Recipe.NetCore.Base.Generic
             }
 
             await UnitOfWork.SaveAsync();
+        }
+
+        protected virtual async Task SaveContext()
+        {
+            while (true)
+            {
+                try
+                {
+                    await UnitOfWork.SaveAsync();
+                    break;
+                }
+                catch (DbUpdateConcurrencyException ex)
+                {
+                    ex.Entries.ToList().ForEach(x => x.State = EntityState.Detached);
+                }
+            }
+        }
+
+        protected static DataTransferObject<TEntity> InitializeDtoFilterProperty()
+        {
+            DataTransferObject<TEntity> dto = new DataTransferObject<TEntity>();
+
+            if (dto.Filter == null)
+                dto.Filter = x => true;
+
+            return dto;
         }
     }
 }
