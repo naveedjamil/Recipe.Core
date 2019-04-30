@@ -1,19 +1,23 @@
-﻿using Recipe.NetCore.Attribute;
+﻿using Microsoft.EntityFrameworkCore;
+using Recipe.NetCore.Attribute;
 using Recipe.NetCore.Base.Abstract;
 using Recipe.NetCore.Enum;
+using Recipe.NetCore.Helper;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using TMH.Common.Helper;
 
 namespace Recipe.NetCore.Base.Interface
 {
-    public interface IService
+    public interface IService<out TDbContext> where TDbContext : DbContext
     {
-        IUnitOfWork UnitOfWork { get; }
+        IUnitOfWork<TDbContext> UnitOfWork { get; }
     }
 
-    public interface IService<TDTO, TKey> : IService
+    public interface IService<TDTO, TKey> : IService<DbContext>
     {
+        [AuditOperationAttribute(OperationType.Read)]
+        Task<IEnumerable<TKey>> GetIds();
+
         [AuditOperationAttribute(OperationType.Read)]
         Task<DataTransferObject<TDTO>> GetAsync(TKey id);
 
@@ -21,7 +25,7 @@ namespace Recipe.NetCore.Base.Interface
         Task<int> GetCount();
 
         [AuditOperationAttribute(OperationType.Read)]
-        Task<DataTransferObject<IList<TDTO>>> GetAllAsync(JSONAPIRequest request);
+        Task<DataTransferObject<IList<TDTO>>> GetAllAsync(JsonapiRequest request);
 
         [AuditOperationAttribute(OperationType.Create)]
         Task<DataTransferObject<TDTO>> CreateAsync(TDTO dtoObject);
@@ -48,6 +52,9 @@ namespace Recipe.NetCore.Base.Interface
     public interface IService<TRepository, TEntity, TDTO, TKey> : IService<TDTO, TKey>
     {
         TRepository Repository { get; }
+        Task<DataTransferObject<List<TDTO>>> GetAllAsync(DataTransferObject<TEntity> entity);
+
+        Task<DataTransferObject<List<TDTO>>> GetAllPagedAsync(DataTransferObject<TEntity> model);
     }
 }
 

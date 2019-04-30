@@ -1,19 +1,18 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Query;
 using Recipe.NetCore.Base.Interface;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Threading.Tasks;
 
 namespace Recipe.NetCore.Base.Generic
 {
-    public class AuditableRepository<TEntity, TKey> : Repository<TEntity, TKey>, IAuditableRepository<TEntity, TKey>
+    public class AuditableRepository<TEntity, TKey, TDbContext> : Repository<TEntity, TKey, TDbContext>, IAuditableRepository<TEntity, TKey>
             where TEntity : class, IAuditModel<TKey>
             where TKey : IEquatable<TKey>
+            where TDbContext : DbContext
     {
-        public AuditableRepository(IRequestInfo requestInfo)
+        public AuditableRepository(IRequestInfo<TDbContext> requestInfo)
             : base(requestInfo)
         {
         }
@@ -73,7 +72,8 @@ namespace Recipe.NetCore.Base.Generic
             await base.DeleteRange(entityList);
         }
 
-        protected void UpdateChildrenWithoutLog<TChildEntity>(ICollection<TChildEntity> childEntities) where TChildEntity : class, IBase<int>
+
+        protected void UpdateChildrenWithoutLog<TChildEntity>(ICollection<TChildEntity> childEntities) where TChildEntity : class, IBase<TKey>
         {
             foreach (var entity in childEntities)
             {
@@ -81,16 +81,23 @@ namespace Recipe.NetCore.Base.Generic
             }
         }
 
-        public virtual void UpdateChildrenWithOutLog<TChildEntity>(TChildEntity childEntity) where TChildEntity : class, IBase<int>
+        public virtual void UpdateChildrenWithOutLog<TChildEntity>(TChildEntity childEntity) where TChildEntity : class, IBase<TKey>
         {
-            if (childEntity.Id > 0)
+            if (childEntity.Id is long && (Convert.ToInt64(childEntity.Id)) > 0)
             {
-                DBContext.Entry(childEntity).State = EntityState.Modified;
+                var localEntity = DbContext.Set<TChildEntity>().Local.FirstOrDefault(x => x.Id.Equals(childEntity.Id));
+                if (localEntity != null)
+                {
+
+                    DbContext.Entry(localEntity).State = EntityState.Detached;
+
+                    DbContext.Entry(childEntity).State = EntityState.Modified;
+                }
             }
             else
             {
-                DBContext.Entry(childEntity).State = EntityState.Added;
+                DbContext.Entry(childEntity).State = EntityState.Added;
             }
-        }        
+        }
     }
 }

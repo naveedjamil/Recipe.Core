@@ -4,9 +4,9 @@ using System.Threading.Tasks;
 
 namespace Recipe.NetCore.Base.Interface
 {
-    public interface IUnitOfWork
+    public interface IUnitOfWork<out TDbContext> where TDbContext : DbContext
     {
-        DbContext DBContext { get; }
+        TDbContext DbContext { get; }
 
         Task<int> SaveAsync();
 

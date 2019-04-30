@@ -3,28 +3,30 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Query;
 using Recipe.NetCore.Base.Generic;
 using Recipe.NetCore.Base.Interface;
 
 namespace Recipe.NetCore.Base.Generic
 {
-    public sealed class QueryFilter<TEntity,TKey> : IQueryFilter<TEntity> 
+    public sealed class QueryFilter<TEntity, TKey, TDbContext> : IQueryFilter<TEntity>
         where TEntity : class, IBase<TKey>
         where TKey : IEquatable<TKey>
+        where TDbContext : DbContext
     {
         #region Private Fields
 
         private readonly Expression<Func<TEntity, bool>> _expression;
         private readonly List<Expression<Func<TEntity, object>>> _includes;
-        private readonly Repository<TEntity,TKey> _repository;
+        private readonly Repository<TEntity, TKey, TDbContext> _repository;
         private Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>> _orderBy;
-        private Func<IQueryable<TEntity>, IIncludableQueryable<TEntity, object>> _includeInCore; 
+        private Func<IQueryable<TEntity>, IIncludableQueryable<TEntity, object>> _includeInCore;
         #endregion Private Fields
 
         #region Constructors
 
-        public QueryFilter(Repository<TEntity, TKey> repository)
+        public QueryFilter(Repository<TEntity, TKey, TDbContext> repository)
         {
             if (repository == null)
             {
@@ -32,10 +34,10 @@ namespace Recipe.NetCore.Base.Generic
             }
 
             _repository = repository;
-            _includes = new List<Expression<Func<TEntity, object>>>();            
+            _includes = new List<Expression<Func<TEntity, object>>>();
         }
 
-        public QueryFilter(Repository<TEntity, TKey> repository, Expression<Func<TEntity, bool>> expression)
+        public QueryFilter(Repository<TEntity, TKey, TDbContext> repository, Expression<Func<TEntity, bool>> expression)
             : this(repository)
         {
             _expression = expression;
@@ -66,7 +68,7 @@ namespace Recipe.NetCore.Base.Generic
             Func<IQueryable<TEntity>, IOrderedQueryable<TEntity>> orderBy = null,
             List<Expression<Func<TEntity, object>>> includes = null, int? page = null, int? pageSize = null)
         {
-            return await _repository.GetPagedResultAsync(filter, orderBy,  includes, page, pageSize);
+            return await _repository.GetPagedResultAsync(filter, orderBy, includes, page, pageSize);
         }
 
         public IEnumerable<TEntity> Select()
